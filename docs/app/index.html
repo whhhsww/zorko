@@ -214,16 +214,31 @@ const KIND_RU = {cafe:'кафе',restaurant:'ресторан',fast_food:'фас
   storage_rental:'склады',rental:'прокат',estate_agent:'недвижимость',lawyer:'юрист',accountant:'бухгалтер',insurance:'страхование',
   advertising_agency:'реклама',it:'IT-компания',architect:'архитектор',company:'компания',employment_agency:'кадровое агентство',
   travel_agent:'турагент',notary:'нотариус',financial:'финансы'};
-const KIND_UA = {'кафе':"кав'ярня",'ресторан':'ресторан','фастфуд':'фастфуд','бар':'бар','паб':'паб','пекарня':'пекарня',
-  'кондитерская':'кондитерська','мороженое':'морозиво','кофе':'кава','мясная лавка':"м'ясна лавка",'парикмахерская':'перукарня',
-  'салон красоты':'салон краси','косметика':'косметика','массаж':'масаж','тату-салон':'тату-салон','ногтевая студия':'нігтьова студія',
-  'автосервис':'автосервіс','шиномонтаж':'шиномонтаж','автомойка':'автомийка','автозапчасти':'автозапчастини','автошкола':'автошкола',
-  'велосипеды':'велосипеди','стоматология':'стоматологія','клиника':'клініка','врач':'лікар','ветклиника':'ветклініка','аптека':'аптека',
-  'оптика':'оптика','гостиница':'готель','хостел':'хостел','гостевой дом':'гостьовий будинок','апартаменты':'апартаменти',
-  'фитнес':'фітнес-клуб','спорткомплекс':'спорткомплекс','танцы':'танці','детский сад':'дитячий садок','языковая школа':'мовна школа',
-  'музыкальная школа':'музична школа','курсы':'курси','детский центр':'дитячий центр','цветы':'квіти','ателье':'ательє',
-  'фотостудия':'фотостудія','прачечная':'пральня','химчистка':'хімчистка','типография':'друкарня','турагентство':'турагенція',
-  'ювелирный':'ювелірний магазин','ремонт обуви':'ремонт взуття','груминг':'грумінг'};
+const KIND_UA = {'кафе':"кав'ярня",'ресторан':'ресторан','фастфуд':'фастфуд','бар':'бар','паб':'паб','пивная':'пивна',
+  'мороженое':'морозиво','фуд-корт':'фуд-корт','пекарня':'пекарня','кондитерская':'кондитерська','кофе':'кава','чай':'чай',
+  'деликатесы':'делікатеси','мясная лавка':"м'ясна лавка",'овощи и фрукты':'овочі і фрукти','алкоголь':'алкоголь','напитки':'напої',
+  'рыба':'риба','сыры':'сири','шоколад':'шоколад','парикмахерская':'перукарня','салон красоты':'салон краси','косметика':'косметика',
+  'массаж':'масаж','тату-салон':'тату-салон','ногтевая студия':'нігтьова студія','парфюмерия':'парфумерія','сауна':'сауна','спа':'спа',
+  'автосервис':'автосервіс','шиномонтаж':'шиномонтаж','автозапчасти':'автозапчастини','автосалон':'автосалон','мотосалон':'мотосалон',
+  'велосипеды':'велосипеди','автомойка':'автомийка','автошкола':'автошкола','стоматология':'стоматологія','клиника':'клініка',
+  'врач':'лікар','ветклиника':'ветклініка','аптека':'аптека','физиотерапия':'фізіотерапія','лаборатория':'лабораторія',
+  'оптометрист':'оптометрист','оптика':'оптика','слуховые аппараты':'слухові апарати','медтехника':'медтехніка','гостиница':'готель',
+  'гостевой дом':'гостьовий будинок','хостел':'хостел','мотель':'мотель','апартаменты':'апартаменти','домик':'будиночок',
+  'фитнес':'фітнес-клуб','спорткомплекс':'спорткомплекс','танцы':'танці','конный клуб':'кінний клуб','боулинг':'боулінг',
+  'скалодром':'скеледром','спорттовары':'спорттовари','рыбалка':'рибалка','туризм':'туризм','языковая школа':'мовна школа',
+  'музыкальная школа':'музична школа','курсы':'курси','детский сад':'дитячий садок','колледж':'коледж','детский центр':'дитячий центр',
+  'учебный центр':'навчальний центр','прачечная':'пральня','химчистка':'хімчистка','ремонт обуви':'ремонт взуття',
+  'ключи и замки':'ключі та замки','фотостудия':'фотостудія','турагентство':'турагенція','цветы':'квіти',
+  'ритуальные услуги':'ритуальні послуги','ателье':'ательє','ювелирный':'ювелірний магазин','часы':'годинники','копицентр':'копіцентр',
+  'типография':'друкарня','груминг':'грумінг','склады':'склади','прокат':'прокат','недвижимость':'нерухомість','юрист':'юрист',
+  'бухгалтер':'бухгалтер','страхование':'страхування','реклама':'реклама','IT-компания':'IT-компанія','архитектор':'архітектор',
+  'компания':'компанія','кадровое агентство':'кадрова агенція','турагент':'турагент','нотариус':'нотаріус','финансы':'фінанси'};
+// Города, записанные в карте по-русски, в украинском письме пишем по-украински.
+const CITY_UA = {'киев':'Київ','львов':'Львів','харьков':'Харків','одесса':'Одеса','днепр':'Дніпро','запорожье':'Запоріжжя',
+  'николаев':'Миколаїв','винница':'Вінниця','чернигов':'Чернігів','черкассы':'Черкаси','сумы':'Суми','ровно':'Рівне',
+  'хмельницкий':'Хмельницький','черновцы':'Чернівці','тернополь':'Тернопіль','ивано-франковск':'Івано-Франківськ','луцк':'Луцьк',
+  'кропивницкий':'Кропивницький','мариуполь':'Маріуполь','кривой рог':'Кривий Ріг','белая церковь':'Біла Церква','бровары':'Бровари',
+  'ирпень':'Ірпінь','дрогобыч':'Дрогобич','трускавец':'Трускавець','борисполь':'Бориспіль','вишневое':'Вишневе','умань':'Умань'};
 const STATUSES = [['new','Новый'],['written','Написал'],['replied','Ответил'],['refused','Отказ']];
 const SOCIAL_HOSTS = ['instagram.com','facebook.com','fb.com','fb.me','t.me','telegram.me','vk.com','tiktok.com','linktr.ee',
   'taplink.cc','youtube.com','wa.me','ok.ru','pinterest.com','x.com','twitter.com','linkedin.com'];
@@ -280,7 +295,7 @@ function saveSettings() { try { localStorage.setItem(SETTINGS, JSON.stringify(se
 // ---------- карта ----------
 async function geocode(city) {
   const url = NOMINATIM + '?' + new URLSearchParams({ q: city, format: 'jsonv2', limit: 5, 'accept-language': 'uk,ru', addressdetails: 1 });
-  const r = await fetch(url, { signal: AbortSignal.timeout(25000) });
+  const r = await fetch(url, { signal: timeoutSignal(25000) });
   if (!r.ok) throw new Error('Поиск городов не отвечает, попробуйте позже.');
   const items = await r.json();
   if (!items.length) throw new Error('Город «' + city + '» не найден. Проверьте написание.');
@@ -292,24 +307,55 @@ async function geocode(city) {
   return { name: String(item.display_name || city).split(',')[0].trim(), cc: ((item.address || {}).country_code || '').toLowerCase(), box: [s, w, n, e] };
 }
 let mirror = 0;
-async function overpass(filters, box, signal, timeout = 120000) {
-  const q = '[out:json][timeout:180];(' + filters.map((f) => 'nwr' + f + '(' + box.map((v) => v.toFixed(6)).join(',') + ');').join('') + ');out center tags;';
-  let last = null;
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const url = MIRRORS[(mirror + attempt) % MIRRORS.length];
-    try {
-      const r = await fetch(url, { method: 'POST', body: new URLSearchParams({ data: q }), signal: AbortSignal.any([signal, AbortSignal.timeout(timeout)]) });
-      if (!r.ok) throw new Error('сервер карт ответил ошибкой ' + r.status);
-      const j = await r.json();
-      mirror = (mirror + attempt) % MIRRORS.length;
-      return j.elements || [];
-    } catch (err) {
-      if (signal.aborted) throw err;
-      last = err;
-      await sleep(3000);
-    }
+function anySignal(list) {
+  if (AbortSignal.any) return AbortSignal.any(list);
+  const c = new AbortController();
+  for (const sig of list) {
+    if (sig.aborted) { c.abort(); break; }
+    sig.addEventListener('abort', () => c.abort(), { once: true });
   }
-  throw new Error('сервер карт не ответил: ' + (last && last.message));
+  return c.signal;
+}
+function timeoutSignal(ms) {
+  if (AbortSignal.timeout) return AbortSignal.timeout(ms);
+  const c = new AbortController(); setTimeout(() => c.abort(), ms); return c.signal;
+}
+// Спрашиваем зеркало карты; если оно молчит дольше hedge, параллельно спрашиваем соседнее
+// и берём ответ, который придёт первым. Одно зависшее зеркало больше не держит весь поиск.
+function overpass(filters, box, signal, timeout = 120000, hedge = 25000) {
+  const q = '[out:json][timeout:180];(' + filters.map((f) => 'nwr' + f + '(' + box.map((v) => v.toFixed(6)).join(',') + ');').join('') + ');out center tags;';
+  const tries = Math.min(2, MIRRORS.length);
+  return new Promise((resolve, reject) => {
+    let started = 0, failed = 0, done = false, timer = null;
+    const controllers = [];
+    const finish = (ok, value) => {
+      if (done) return;
+      done = true; clearTimeout(timer);
+      for (const c of controllers) c.abort();
+      (ok ? resolve : reject)(value);
+    };
+    const start = () => {
+      if (done || started >= tries) return;
+      const index = (mirror + started) % MIRRORS.length;
+      started++;
+      const c = new AbortController();
+      controllers.push(c);
+      fetch(MIRRORS[index], { method: 'POST', body: new URLSearchParams({ data: q }),
+                              signal: anySignal([signal, c.signal, timeoutSignal(timeout)]) })
+        .then((r) => { if (!r.ok) throw new Error('сервер карт ответил ошибкой ' + r.status); return r.json(); })
+        .then((j) => { mirror = index; finish(true, j.elements || []); })
+        .catch((err) => {
+          if (signal.aborted) return finish(false, err);
+          failed++;
+          if (failed >= tries) finish(false, new Error('сервер карт не ответил'));
+          else start();
+        });
+      clearTimeout(timer);
+      timer = setTimeout(start, hedge);
+    };
+    start();
+    signal.addEventListener('abort', () => finish(false, new Error('остановлено')), { once: true });
+  });
 }
 function splitBox(b) {
   const [s, w, n, e] = b, ms = (s + n) / 2, mw = (w + e) / 2;
@@ -440,7 +486,7 @@ async function scan(cities, cats) {
       const t = tasks[i];
       setProgress(i, tasks.length, t.name + ': участок ' + (i + 1) + ' из ' + tasks.length + '. Найдено: ' + found + ', новых: ' + added);
       try {
-        const elements = await overpass(filters, t.box, signal, t.depth === 0 ? 120000 : 80000);
+        const elements = await overpass(filters, t.box, signal, t.depth === 0 ? 120000 : 80000, t.depth === 0 ? 25000 : 12000);
         found += elements.length;
         added += mergeElements(elements, t.name);
         markChainsAndTwins();
@@ -456,7 +502,7 @@ async function scan(cities, cats) {
         inRow++;
         if ((found === 0 && inRow >= 3) || failed >= 8) throw new Error(NO_MAP);
       }
-      await sleep(2000);
+      await sleep(1000);
     }
     const stopped = signal.aborted;
     setProgress(1, 1, stopped ? ('Остановлено. Новых заведений: ' + added + ', найденное сохранено.')
@@ -499,9 +545,10 @@ function draftVariants(p) {
   const lang = settings.lang === 'ru' ? 'ru' : 'ua';
   const seed = seedOf(p.id), pick = (list, salt) => list[(seed + (salt || 0)) % list.length];
   const name = String(p.name).replace(/["«»„“”]/g, '').trim() || p.name;
-  const city = p.city || '';
+  let city = p.city || '';
   const kindRu = p.kind || 'заведение';
   const kind = lang === 'ua' ? (KIND_UA[p.kind] || p.kind || 'заклад') : kindRu;
+  if (lang === 'ua') city = CITY_UA[city.toLowerCase()] || city;
   const site = (p.website || p.found_site || '').replace(/^https?:\/\//i, '').replace(/\/$/, '');
   const hasSite = p.site_state === 'site' || p.site_state === 'found';
   const me = (settings.name || '').trim(), offer = (settings.offer || '').trim();
