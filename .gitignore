@@ -1,0 +1,10 @@
+# база с найденными заведениями, статусами и заметками: только локально
+zorko.db
+zorko.db-journal
+*.csv
+
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.DS_Store
