@@ -65,7 +65,7 @@ CITY_ALIASES = {"kyev": "kyiv", "kiev": "kyiv", "lvov": "lviv", "kharkov": "khar
                 "vynnytsa": "vinnytsia", "vinnitsa": "vinnytsia", "zaporozhe": "zaporizhzhia",
                 "rovno": "rivne", "ternopol": "ternopil", "lutsk": "lutsk", "uzhhorod": "uzhgorod"}
 PAUSE_BETWEEN_CELLS = 1.0  # секунд, чтобы не перегружать бесплатный сервер карт
-HEDGE_SECONDS = 25         # сколько ждём молчащее зеркало, прежде чем спросить соседнее
+HEDGE_SECONDS = 15         # сколько ждём молчащее зеркало, прежде чем спросить соседнее
 NO_MAP = ("Серверы карт не отвечают. Чаще всего это значит, что после большого поиска "
           "они на время ограничили ваш адрес, либо мешает VPN. Подождите 10–15 минут, "
           "выключите VPN и попробуйте снова. Кнопка «Проверить связь» покажет, какие серверы живы.")
@@ -900,7 +900,7 @@ def run_scan(token, cities, cat_keys, cell_km=0):
         setj(token, msg="%s: участок %d из %d" % (name, i + 1, len(tasks)))
         try:
             elements = overpass(filters, box[0], box[1], box[2], box[3], alive=lambda: alive(token),
-                                timeout=120 if depth == 0 else 80, hedge=None if depth == 0 else 12)
+                                timeout=120 if depth == 0 else 80, hedge=None if depth == 0 else 8)
             if not elements and depth == 0 and len(OVERPASS) > 1:
                 # пусто на целый город подозрительно: спрашиваем другое зеркало
                 OVERPASS_NEXT[0] = (OVERPASS_NEXT[0] + 1) % len(OVERPASS)

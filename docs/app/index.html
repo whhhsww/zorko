@@ -322,7 +322,7 @@ function timeoutSignal(ms) {
 }
 // Спрашиваем зеркало карты; если оно молчит дольше hedge, параллельно спрашиваем соседнее
 // и берём ответ, который придёт первым. Одно зависшее зеркало больше не держит весь поиск.
-function overpass(filters, box, signal, timeout = 120000, hedge = 25000) {
+function overpass(filters, box, signal, timeout = 120000, hedge = 15000) {
   const q = '[out:json][timeout:180];(' + filters.map((f) => 'nwr' + f + '(' + box.map((v) => v.toFixed(6)).join(',') + ');').join('') + ');out center tags;';
   const tries = Math.min(2, MIRRORS.length);
   return new Promise((resolve, reject) => {
@@ -486,7 +486,7 @@ async function scan(cities, cats) {
       const t = tasks[i];
       setProgress(i, tasks.length, t.name + ': участок ' + (i + 1) + ' из ' + tasks.length + '. Найдено: ' + found + ', новых: ' + added);
       try {
-        const elements = await overpass(filters, t.box, signal, t.depth === 0 ? 120000 : 80000, t.depth === 0 ? 25000 : 12000);
+        const elements = await overpass(filters, t.box, signal, t.depth === 0 ? 120000 : 80000, t.depth === 0 ? 15000 : 8000);
         found += elements.length;
         added += mergeElements(elements, t.name);
         markChainsAndTwins();
