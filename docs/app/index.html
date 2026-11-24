@@ -1,0 +1,806 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Zorko в браузере</title>
+<meta name="description" content="Поиск заведений без сайта по данным OpenStreetMap. Работает прямо в браузере, ничего не устанавливая.">
+<style>
+:root{--bg:#000;--card:#0b0b0c;--ink:#f5f5f7;--mute:#a1a1a6;--line:#27272b;--acc:#f5f5f7;--acc-ink:#000;--good:#7ee0a1;--warn:#ffcf70;--bad:#ff8f8f}
+*{box-sizing:border-box}
+html{color-scheme:dark}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "Segoe UI",system-ui,sans-serif;
+  background-image:radial-gradient(rgba(255,255,255,.1) 1px,transparent 1.2px);background-size:22px 22px}
+main{max-width:1500px;margin:0 auto;padding:18px 14px 56px;display:flex;flex-direction:column;gap:14px}
+header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px}
+.brand{display:flex;align-items:center;gap:10px;font-size:22px;font-weight:700}
+.brand a{color:inherit;text-decoration:none}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:end}
+label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--mute)}
+input,select,textarea,button{font:inherit;color:var(--ink);background:#000;border:1px solid var(--line);border-radius:10px;padding:9px 12px;min-height:44px}
+input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible,a:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+button{cursor:pointer}
+button:hover{border-color:var(--acc)}
+button.main{background:var(--acc);color:var(--acc-ink);border-color:var(--acc);font-weight:700}
+button:disabled{opacity:.45;cursor:default}
+.grow{flex:1 1 220px}
+.check{flex-direction:row;align-items:center;gap:8px;min-height:44px;font-size:15px;color:var(--ink);padding:0 10px;border:1px solid var(--line);border-radius:10px;cursor:pointer}
+.check input{min-height:0;padding:0;width:17px;height:17px}
+.check:hover{border-color:var(--acc)}
+.cats{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.bar{height:8px;border-radius:8px;background:var(--line);overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--acc);transition:width .4s}
+.muted{color:var(--mute);font-size:14px}
+.err{color:var(--bad)}
+.note{border:1px solid var(--line);border-left:3px solid var(--warn);border-radius:12px;padding:12px 14px;color:var(--mute);font-size:14px}
+.note b{color:var(--ink)}
+.note a{color:var(--ink)}
+.wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:980px}
+th{font-size:13px;color:var(--mute);text-align:left;font-weight:500;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:10px;border-bottom:1px solid var(--line);vertical-align:top}
+tr.dim td{opacity:.55}
+tr.pick{cursor:pointer}
+tr.pick:hover td{background:#141416}
+.score{display:inline-block;min-width:38px;text-align:center;padding:3px 6px;border-radius:8px;border:1px solid var(--line);font-variant-numeric:tabular-nums;font-weight:700}
+.score.hi{background:var(--acc);color:var(--acc-ink);border-color:var(--acc)}
+.tag{display:inline-block;margin:0 4px 4px 0;padding:2px 8px;border-radius:999px;border:1px solid var(--line);font-size:13px}
+.tag.none{background:var(--acc);color:var(--acc-ink);border-color:var(--acc)}
+.tag.ok{border-color:var(--good);color:var(--good)}
+a{color:var(--ink)}
+td input{width:100%;min-width:150px;min-height:36px;padding:6px 8px}
+td select,td button,td a.mini{min-height:36px;padding:6px 8px}
+a.mini{display:inline-block;border:1px solid var(--line);border-radius:10px;text-decoration:none;text-align:center}
+a.mini:hover{border-color:var(--acc)}
+dialog{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:16px;padding:20px;width:min(660px,94vw)}
+dialog::backdrop{background:rgba(0,0,0,.72)}
+textarea{width:100%;min-height:220px;resize:vertical}
+footer{color:var(--mute);font-size:13px;display:flex;flex-wrap:wrap;gap:6px 18px}
+#toast{position:fixed;right:14px;bottom:14px;max-width:min(560px,92vw);padding:12px 16px;background:var(--acc);color:var(--acc-ink);border-radius:12px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .2s;overflow-wrap:anywhere;z-index:5}
+#toast.on{opacity:1}
+.more{display:flex;justify-content:center;padding-top:12px}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <div class="brand">
+    <a href="../" aria-label="Zorko, на главную">
+      <svg width="30" height="30" viewBox="0 0 32 32" aria-hidden="true" fill="currentColor" style="vertical-align:-6px"><circle cx="9" cy="5" r="2.7"/><circle cx="16.5" cy="5" r="2.7"/><circle cx="24" cy="5" r="2.7"/><circle cx="24" cy="10.5" r="2.7"/><circle cx="16.5" cy="16" r="2.7"/><circle cx="9" cy="21.5" r="2.7"/><circle cx="9" cy="27" r="2.7"/><circle cx="16.5" cy="27" r="2.7"/><circle cx="24" cy="27" r="2.7"/></svg>
+      Zorko
+    </a>
+  </div>
+  <div class="muted" id="stats">В базе: 0</div>
+</header>
+
+<p class="note">Это версия для браузера: ничего не устанавливать, работает с телефона, данные хранятся в этом браузере.
+<b>Чего она не умеет:</b> открывать чужие сайты и профили, поэтому проверки «есть ли сайт на самом деле», разбора проблем сайта
+и поиска аккаунтов в Instagram тут нет — браузер запрещает страницам читать чужие сайты.
+Эти проверки есть в <a href="https://github.com/whhhsww/zorko" target="_blank" rel="noopener">версии для компьютера</a>.</p>
+
+<section class="panel" aria-label="Поиск заведений">
+  <form class="row" id="scan-form">
+    <label class="grow">Город, можно несколько через запятую<input id="city" placeholder="Львів, Дрогобич" required></label>
+    <button class="main" id="scan-btn" type="submit">Найти заведения</button>
+    <button id="stop-btn" type="button" disabled>Остановить</button>
+  </form>
+  <div class="cats" id="cats" role="group" aria-label="Категории заведений"></div>
+  <div style="margin-top:12px;display:flex;flex-direction:column;gap:6px">
+    <div class="bar" role="progressbar" aria-label="Ход поиска" aria-valuemin="0" aria-valuemax="100" id="bar"><i></i></div>
+    <div class="muted" id="job-msg">Отметьте категории, впишите город и нажмите «Найти заведения».</div>
+  </div>
+</section>
+
+<section class="panel" aria-label="Ваши данные для текстов">
+  <div class="row">
+    <label class="grow">Ваше имя<input id="my-name" placeholder="Например: Андрій"></label>
+    <label class="grow" style="flex-grow:3">Что вы предлагаете<input id="offer" placeholder="роблю сайти для місцевого бізнесу"></label>
+    <label>Язык текстов<select id="lang"><option value="ua">Українська</option><option value="ru">Русский</option></select></label>
+  </div>
+</section>
+
+<section class="panel" aria-label="Заведения">
+  <div class="row" style="margin-bottom:10px">
+    <label>Сайт<select id="f-site">
+      <option value="lead">Кому нужен сайт</option>
+      <option value="none">Сайта нет в карте</option>
+      <option value="social">Только соцсеть</option>
+      <option value="found">Сайт нашёлся</option>
+      <option value="site">Сайт есть в карте</option>
+      <option value="all">Все</option>
+    </select></label>
+    <label>Город<select id="f-city"><option value="">Все города</option></select></label>
+    <label>Статус<select id="f-status"><option value="">Любой</option></select></label>
+    <label>Контакты<select id="f-contact">
+      <option value="">Любые</option><option value="any">Есть хоть какой-то</option>
+      <option value="phone">Есть телефон</option><option value="insta">Есть Instagram</option>
+    </select></label>
+    <label>Сортировка<select id="f-sort">
+      <option value="score">По приоритету</option><option value="name">По названию</option>
+      <option value="city">По городу</option><option value="new">Сначала новые</option>
+    </select></label>
+    <label class="grow">Поиск по названию и адресу<input id="f-text" type="search"></label>
+    <label class="check"><input id="f-chain" type="checkbox" checked> Скрыть сети</label>
+    <label class="check"><input id="f-hidden" type="checkbox"> Показать скрытые</label>
+  </div>
+  <div class="row" style="margin-bottom:10px">
+    <button type="button" id="csv-btn">Скачать CSV</button>
+    <button type="button" id="clear-btn">Очистить базу</button>
+    <span class="muted" id="count" style="align-self:center"></span>
+  </div>
+  <div class="wrap">
+    <table>
+      <thead><tr><th>Приоритет</th><th>Заведение</th><th>Контакты</th><th>Сайт</th><th>Статус</th><th>Заметка</th><th>Действия</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+  <div class="more"><button type="button" id="more-btn" hidden>Показать ещё</button></div>
+</section>
+
+<footer>
+  <span>Данные карты © участники <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a></span>
+  <span><a href="https://github.com/whhhsww/zorko" target="_blank" rel="noopener">Исходный код</a></span>
+  <span>Сообщения заведениям отправляете вы сами</span>
+</footer>
+</main>
+
+<dialog id="draft-dlg" aria-labelledby="draft-title">
+  <h2 id="draft-title" style="margin:0 0 4px;font-size:20px">Текст сообщения</h2>
+  <div class="muted" id="draft-contact"></div>
+  <div class="row" id="draft-links" style="margin:10px 0 12px;gap:8px"></div>
+  <div class="row" id="draft-tabs" role="group" aria-label="Вид сообщения" style="margin-bottom:12px"></div>
+  <textarea id="draft-text" aria-label="Текст сообщения"></textarea>
+  <div class="row" style="margin-top:12px;justify-content:flex-end">
+    <span class="muted" id="copy-msg" style="margin-right:auto"></span>
+    <button type="button" id="copy-btn" class="main">Скопировать</button>
+    <button type="button" id="close-btn">Закрыть</button>
+  </div>
+</dialog>
+
+<dialog id="site-dlg" aria-labelledby="site-title">
+  <h2 id="site-title" style="margin:0 0 12px;font-size:20px">У них есть сайт</h2>
+  <p class="muted" style="margin:0 0 12px">Нашли сайт в поиске или в описании профиля? Впишите его: заведение уйдёт из списка, адрес останется в базе и в выгрузке.</p>
+  <label>Адрес сайта<input id="site-input" type="text" placeholder="example.com" style="width:100%"></label>
+  <p class="err" id="site-msg" style="margin:10px 0 0" hidden></p>
+  <div class="row" style="margin-top:12px;justify-content:flex-end">
+    <button type="button" id="site-save" class="main">Сохранить</button>
+    <button type="button" id="site-cancel">Отмена</button>
+  </div>
+</dialog>
+
+<dialog id="clear-dlg" aria-labelledby="clear-title">
+  <h2 id="clear-title" style="margin:0 0 12px;font-size:20px">Очистить базу?</h2>
+  <p class="muted">Из этого браузера удалятся все найденные заведения вместе со статусами и заметками. Вернуть их нельзя.</p>
+  <div class="row" style="margin-top:12px;justify-content:flex-end">
+    <button type="button" id="clear-yes" class="main">Удалить всё</button>
+    <button type="button" id="clear-no">Отмена</button>
+  </div>
+</dialog>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+'use strict';
+// ---------- справочники ----------
+const CATEGORIES = [
+  ['food', 'Кафе, рестораны, пекарни', ['["amenity"~"^(cafe|restaurant|fast_food|bar|pub|ice_cream|food_court|biergarten)$"]',
+    '["shop"~"^(bakery|pastry|confectionery|coffee|tea|deli|butcher|greengrocer|alcohol|beverages|seafood|cheese|chocolate)$"]']],
+  ['beauty', 'Красота и барбершопы', ['["shop"~"^(hairdresser|beauty|cosmetics|massage|tattoo|nails|perfumery)$"]', '["leisure"="sauna"]', '["amenity"="spa"]']],
+  ['auto', 'Авто: сервис, мойка, шины', ['["shop"~"^(car_repair|tyres|car_parts|car|motorcycle|bicycle)$"]', '["amenity"~"^(car_wash|driving_school)$"]']],
+  ['med', 'Медицина и ветеринары', ['["amenity"~"^(dentist|clinic|doctors|veterinary|pharmacy)$"]',
+    '["healthcare"~"^(dentist|clinic|doctor|physiotherapist|laboratory|optometrist)$"]', '["shop"~"^(optician|hearing_aids|medical_supply)$"]']],
+  ['stay', 'Гостиницы и аренда', ['["tourism"~"^(hotel|guest_house|hostel|motel|apartment|chalet)$"]']],
+  ['sport', 'Спорт и фитнес', ['["leisure"~"^(fitness_centre|sports_centre|dance|horse_riding|bowling_alley|climbing)$"]',
+    '["shop"~"^(sports|fishing|outdoor)$"]']],
+  ['edu', 'Курсы, школы, садики', ['["amenity"~"^(language_school|music_school|prep_school|kindergarten|college|childcare)$"]', '["office"="educational_institution"]']],
+  ['service', 'Услуги и ремонт', ['["shop"~"^(laundry|dry_cleaning|shoe_repair|locksmith|photo|travel_agency|florist|funeral_directors|tailor|jewelry|watches|copyshop|printing|pet_grooming|storage_rental|rental)$"]', '["craft"]']],
+  ['office', 'Офисы и агентства', ['["office"~"^(estate_agent|lawyer|accountant|insurance|advertising_agency|it|architect|company|employment_agency|travel_agent|notary|financial)$"]']],
+  ['shops', 'Магазины (всё остальное)', ['["shop"]']]
+];
+const KIND_RU = {cafe:'кафе',restaurant:'ресторан',fast_food:'фастфуд',bar:'бар',pub:'паб',biergarten:'пивная',ice_cream:'мороженое',
+  food_court:'фуд-корт',bakery:'пекарня',pastry:'кондитерская',confectionery:'кондитерская',coffee:'кофе',tea:'чай',deli:'деликатесы',
+  butcher:'мясная лавка',greengrocer:'овощи и фрукты',alcohol:'алкоголь',beverages:'напитки',seafood:'рыба',cheese:'сыры',chocolate:'шоколад',
+  hairdresser:'парикмахерская',beauty:'салон красоты',cosmetics:'косметика',massage:'массаж',tattoo:'тату-салон',nails:'ногтевая студия',
+  perfumery:'парфюмерия',sauna:'сауна',spa:'спа',car_repair:'автосервис',tyres:'шиномонтаж',car_parts:'автозапчасти',car:'автосалон',
+  motorcycle:'мотосалон',bicycle:'велосипеды',car_wash:'автомойка',driving_school:'автошкола',dentist:'стоматология',clinic:'клиника',
+  doctors:'врач',veterinary:'ветклиника',pharmacy:'аптека',physiotherapist:'физиотерапия',laboratory:'лаборатория',optometrist:'оптометрист',
+  optician:'оптика',hearing_aids:'слуховые аппараты',medical_supply:'медтехника',hotel:'гостиница',guest_house:'гостевой дом',hostel:'хостел',
+  motel:'мотель',apartment:'апартаменты',chalet:'домик',fitness_centre:'фитнес',sports_centre:'спорткомплекс',dance:'танцы',
+  horse_riding:'конный клуб',bowling_alley:'боулинг',climbing:'скалодром',sports:'спорттовары',fishing:'рыбалка',outdoor:'туризм',
+  language_school:'языковая школа',music_school:'музыкальная школа',prep_school:'курсы',kindergarten:'детский сад',college:'колледж',
+  childcare:'детский центр',educational_institution:'учебный центр',laundry:'прачечная',dry_cleaning:'химчистка',shoe_repair:'ремонт обуви',
+  locksmith:'ключи и замки',photo:'фотостудия',travel_agency:'турагентство',florist:'цветы',funeral_directors:'ритуальные услуги',
+  tailor:'ателье',jewelry:'ювелирный',watches:'часы',copyshop:'копицентр',printing:'типография',pet_grooming:'груминг',
+  storage_rental:'склады',rental:'прокат',estate_agent:'недвижимость',lawyer:'юрист',accountant:'бухгалтер',insurance:'страхование',
+  advertising_agency:'реклама',it:'IT-компания',architect:'архитектор',company:'компания',employment_agency:'кадровое агентство',
+  travel_agent:'турагент',notary:'нотариус',financial:'финансы'};
+const KIND_UA = {'кафе':"кав'ярня",'ресторан':'ресторан','фастфуд':'фастфуд','бар':'бар','паб':'паб','пекарня':'пекарня',
+  'кондитерская':'кондитерська','мороженое':'морозиво','кофе':'кава','мясная лавка':"м'ясна лавка",'парикмахерская':'перукарня',
+  'салон красоты':'салон краси','косметика':'косметика','массаж':'масаж','тату-салон':'тату-салон','ногтевая студия':'нігтьова студія',
+  'автосервис':'автосервіс','шиномонтаж':'шиномонтаж','автомойка':'автомийка','автозапчасти':'автозапчастини','автошкола':'автошкола',
+  'велосипеды':'велосипеди','стоматология':'стоматологія','клиника':'клініка','врач':'лікар','ветклиника':'ветклініка','аптека':'аптека',
+  'оптика':'оптика','гостиница':'готель','хостел':'хостел','гостевой дом':'гостьовий будинок','апартаменты':'апартаменти',
+  'фитнес':'фітнес-клуб','спорткомплекс':'спорткомплекс','танцы':'танці','детский сад':'дитячий садок','языковая школа':'мовна школа',
+  'музыкальная школа':'музична школа','курсы':'курси','детский центр':'дитячий центр','цветы':'квіти','ателье':'ательє',
+  'фотостудия':'фотостудія','прачечная':'пральня','химчистка':'хімчистка','типография':'друкарня','турагентство':'турагенція',
+  'ювелирный':'ювелірний магазин','ремонт обуви':'ремонт взуття','груминг':'грумінг'};
+const STATUSES = [['new','Новый'],['written','Написал'],['replied','Ответил'],['refused','Отказ']];
+const SOCIAL_HOSTS = ['instagram.com','facebook.com','fb.com','fb.me','t.me','telegram.me','vk.com','tiktok.com','linktr.ee',
+  'taplink.cc','youtube.com','wa.me','ok.ru','pinterest.com','x.com','twitter.com','linkedin.com'];
+const MIRRORS = ['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter','https://overpass.private.coffee/api/interpreter'];
+const NOMINATIM = 'https://nominatim.openstreetmap.org/search';
+const MAX_SPLITS = 3, PAGE_SIZE = 200, STORE = 'zorko-places', SETTINGS = 'zorko-settings';
+const NO_MAP = 'Серверы карт не отвечают. Они бесплатные и общие: бывают перегружены, а после большого поиска могут на время ограничить ваш адрес. Подождите 10–15 минут, выключите VPN и попробуйте снова.';
+
+// ---------- мелкие помощники ----------
+const $ = (s) => document.querySelector(s);
+function el(tag, props, ...kids) {
+  const n = document.createElement(tag);
+  for (const k in (props || {})) {
+    if (k === 'class') n.className = props[k];
+    else if (k === 'text') n.textContent = props[k];
+    else if (k.startsWith('on')) n.addEventListener(k.slice(2), props[k]);
+    else if (props[k] !== null && props[k] !== undefined) n.setAttribute(k, props[k]);
+  }
+  for (const c of kids) if (c != null) n.append(c);
+  return n;
+}
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+function normalizeName(s) { return String(s || '').toLowerCase().replace(/[^0-9a-zа-яёіїєґ]+/g, ''); }
+function normalizeUrl(u) { u = String(u || '').trim(); return u && !/^https?:\/\//i.test(u) ? 'http://' + u : u; }
+function hostOf(u) { try { return new URL(normalizeUrl(u)).hostname.toLowerCase(); } catch (e) { return ''; } }
+function isSocial(u) { const h = hostOf(u); return SOCIAL_HOSTS.some((s) => h === s || h.endsWith('.' + s)); }
+function siteState(u) { return !u ? 'none' : (isSocial(u) ? 'social' : 'site'); }
+function meters(a, b) {
+  const dy = (a.lat - b.lat) * 111000, dx = (a.lon - b.lon) * 111000 * Math.cos((a.lat + b.lat) / 2 * Math.PI / 180);
+  return Math.hypot(dx, dy);
+}
+let toastTimer = 0;
+function toast(text) {
+  const n = $('#toast'); n.textContent = text; n.classList.add('on');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => n.classList.remove('on'), 4500);
+}
+function showError(e) { const m = $('#job-msg'); m.className = 'err'; m.textContent = e.message || String(e); toast(m.textContent); }
+
+// ---------- хранилище ----------
+let places = [], settings = { name: '', offer: '', lang: 'ua', cats: ['food'], city: '' }, shown = PAGE_SIZE;
+function load() {
+  try { places = JSON.parse(localStorage.getItem(STORE) || '[]'); } catch (e) { places = []; }
+  try { Object.assign(settings, JSON.parse(localStorage.getItem(SETTINGS) || '{}')); } catch (e) {}
+}
+function save() {
+  try { localStorage.setItem(STORE, JSON.stringify(places)); return true; }
+  catch (e) {
+    toast('В браузере кончилось место под базу. Скачайте CSV и очистите базу, иначе новые заведения не сохранятся.');
+    return false;
+  }
+}
+function saveSettings() { try { localStorage.setItem(SETTINGS, JSON.stringify(settings)); } catch (e) {} }
+
+// ---------- карта ----------
+async function geocode(city) {
+  const url = NOMINATIM + '?' + new URLSearchParams({ q: city, format: 'jsonv2', limit: 5, 'accept-language': 'uk,ru', addressdetails: 1 });
+  const r = await fetch(url, { signal: AbortSignal.timeout(25000) });
+  if (!r.ok) throw new Error('Поиск городов не отвечает, попробуйте позже.');
+  const items = await r.json();
+  if (!items.length) throw new Error('Город «' + city + '» не найден. Проверьте написание.');
+  const good = ['city', 'town', 'village', 'hamlet', 'municipality', 'administrative', 'suburb', 'borough'];
+  const item = items.find((i) => good.includes(i.type) || good.includes(i.addresstype)) || items[0];
+  const [s, n, w, e] = item.boundingbox.map(Number);
+  const side = Math.max((n - s) * 111, (e - w) * 111 * Math.cos((s + n) / 2 * Math.PI / 180));
+  if (side > 150) throw new Error('«' + city + '» — слишком большая область. Укажите город или район.');
+  return { name: String(item.display_name || city).split(',')[0].trim(), cc: ((item.address || {}).country_code || '').toLowerCase(), box: [s, w, n, e] };
+}
+let mirror = 0;
+async function overpass(filters, box, signal, timeout = 120000) {
+  const q = '[out:json][timeout:180];(' + filters.map((f) => 'nwr' + f + '(' + box.map((v) => v.toFixed(6)).join(',') + ');').join('') + ');out center tags;';
+  let last = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const url = MIRRORS[(mirror + attempt) % MIRRORS.length];
+    try {
+      const r = await fetch(url, { method: 'POST', body: new URLSearchParams({ data: q }), signal: AbortSignal.any([signal, AbortSignal.timeout(timeout)]) });
+      if (!r.ok) throw new Error('сервер карт ответил ошибкой ' + r.status);
+      const j = await r.json();
+      mirror = (mirror + attempt) % MIRRORS.length;
+      return j.elements || [];
+    } catch (err) {
+      if (signal.aborted) throw err;
+      last = err;
+      await sleep(3000);
+    }
+  }
+  throw new Error('сервер карт не ответил: ' + (last && last.message));
+}
+function splitBox(b) {
+  const [s, w, n, e] = b, ms = (s + n) / 2, mw = (w + e) / 2;
+  return [[s, w, ms, mw], [s, mw, ms, e], [ms, w, n, mw], [ms, mw, n, e]];
+}
+
+// ---------- разбор заведений ----------
+function instaHandle(value) {
+  let v = String(value || '').trim().split(';')[0].trim().replace(/^@/, '');
+  if (/instagram\.com/i.test(v)) { try { v = new URL(normalizeUrl(v)).pathname.replace(/^\/|\/$/g, '').split('/')[0]; } catch (e) { v = ''; } }
+  v = v.replace(/^@/, '').trim();
+  return /^[A-Za-z0-9._]{2,30}$/.test(v) ? v : '';
+}
+function parseElement(x) {
+  const t = x.tags || {};
+  const name = t.name || t['name:uk'] || t['name:ru'] || t['name:en'];
+  const lat = x.lat != null ? x.lat : (x.center || {}).lat, lon = x.lon != null ? x.lon : (x.center || {}).lon;
+  if (!name || lat == null || lon == null) return null;
+  const kindKey = ['amenity', 'shop', 'tourism', 'leisure', 'healthcare', 'office', 'craft'].map((k) => t[k]).find(Boolean) || '';
+  let website = '';
+  for (const k of ['website', 'contact:website', 'url', 'contact:url', 'website:menu', 'operator:website', 'brand:website', 'contact:webpage']) {
+    if (t[k]) { website = String(t[k]).split(';')[0].trim(); break; }
+  }
+  const socials = [];
+  for (const k of ['instagram', 'facebook', 'telegram', 'viber', 'whatsapp', 'vk', 'tiktok', 'youtube']) {
+    const v = t['contact:' + k] || t[k];
+    if (v) socials.push(k + ': ' + String(v).split(';')[0].trim());
+  }
+  let phone = '';
+  for (const k of ['phone', 'contact:phone', 'contact:mobile', 'mobile', 'phone:mobile']) { if (t[k]) { phone = String(t[k]).trim(); break; } }
+  return {
+    id: x.type + '/' + x.id, name: String(name).trim().slice(0, 160), kind: KIND_RU[kindKey] || kindKey,
+    lat, lon, address: [t['addr:street'], t['addr:housenumber']].filter(Boolean).join(' '), city: t['addr:city'] || '',
+    phone, email: String(t.email || t['contact:email'] || '').split(';')[0].trim(), website, socials: socials.join('; '),
+    hours: t.opening_hours || '', chain: (t.brand || t['brand:wikidata']) ? 1 : 0, site_state: siteState(website),
+    instagram: instaHandle(t['contact:instagram'] || t.instagram || ''), found_site: '', found_how: '',
+    status: 'new', note: '', hidden: 0, hidden_why: '', found_at: ''
+  };
+}
+function score(p) {
+  const state = p.site_state || 'none';
+  let s = state === 'none' ? 60 : state === 'social' ? 45 : state === 'found' ? 18 : 10;
+  const online = !!(p.email || p.socials || p.instagram || state === 'social');
+  if (p.phone) s += 25;
+  if (online) s += 10;
+  if (p.address) s += 5;
+  if (!p.phone && !online) s -= 15;
+  if (p.chain) s -= 40;
+  return Math.max(0, Math.min(100, s));
+}
+function mergeElements(elements, cityName) {
+  const byId = new Map(places.map((p) => [p.id, p]));
+  const now = new Date().toISOString().slice(0, 19);
+  let added = 0;
+  for (const raw of elements) {
+    const p = parseElement(raw);
+    if (!p) continue;
+    p.city = p.city || cityName;
+    const old = byId.get(p.id);
+    if (old) {  // своё (статус, заметка, найденный сайт) не трогаем
+      Object.assign(old, p, { status: old.status, note: old.note, hidden: old.hidden, hidden_why: old.hidden_why,
+        found_site: old.found_site, found_how: old.found_how, found_at: old.found_at,
+        site_state: (!p.website && old.found_site) ? old.site_state : p.site_state });
+      old.score = score(old);
+      continue;
+    }
+    const twin = places.find((q) => normalizeName(q.name) === normalizeName(p.name) && meters(q, p) < 60);
+    p.hidden = twin ? 1 : 0;
+    p.hidden_why = twin ? 'дубль' : '';
+    p.found_at = now;
+    p.score = score(p);
+    places.push(p);
+    byId.set(p.id, p);
+    if (!twin) added++;
+  }
+  return added;
+}
+function markChainsAndTwins() {
+  const groups = new Map();
+  for (const p of places) {
+    const key = normalizeName(p.name);
+    if (!key) continue;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(p);
+  }
+  for (const [, group] of groups) {
+    if (group.length >= 3) for (const p of group) p.chain = 1;
+    // сайт известен у одного — значит он же и у остальных с тем же названием
+    const known = group.map((p) => p.website || p.found_site).find((s) => s && !isSocial(s));
+    if (known) {
+      for (const p of group) {
+        if (p.site_state === 'none' && !p.found_site) {
+          p.found_site = known; p.found_how = 'такое же название в базе'; p.site_state = 'found';
+        }
+      }
+    }
+    for (const p of group) p.score = score(p);
+  }
+}
+
+// ---------- поиск ----------
+let controller = null;
+function setProgress(done, total, text, isError) {
+  const pct = total ? Math.round(100 * done / total) : 0;
+  $('#bar').firstElementChild.style.width = pct + '%';
+  $('#bar').setAttribute('aria-valuenow', String(pct));
+  const m = $('#job-msg');
+  m.className = isError ? 'err' : 'muted';
+  m.textContent = text;
+}
+async function scan(cities, cats) {
+  const filters = [...new Set(CATEGORIES.filter((c) => cats.includes(c[0])).flatMap((c) => c[2]))];
+  if (!filters.length) throw new Error('Выберите хотя бы одну категорию.');
+  controller = new AbortController();
+  const signal = controller.signal;
+  $('#scan-btn').disabled = true; $('#stop-btn').disabled = false;
+  let added = 0, found = 0, failed = 0, inRow = 0;
+  try {
+    const tasks = [];
+    for (const city of cities) {
+      setProgress(0, 1, 'Ищу на карте: ' + city);
+      const area = await geocode(city);
+      tasks.push({ name: area.name, box: area.box, depth: 0 });
+      await sleep(1200);  // правила бесплатного поиска городов: не чаще раза в секунду
+    }
+    for (let i = 0; i < tasks.length; i++) {
+      if (signal.aborted) break;
+      const t = tasks[i];
+      setProgress(i, tasks.length, t.name + ': участок ' + (i + 1) + ' из ' + tasks.length + '. Найдено: ' + found + ', новых: ' + added);
+      try {
+        const elements = await overpass(filters, t.box, signal, t.depth === 0 ? 120000 : 80000);
+        found += elements.length;
+        added += mergeElements(elements, t.name);
+        markChainsAndTwins();
+        save();
+        render();
+        inRow = 0;
+      } catch (err) {
+        if (signal.aborted) break;
+        if (t.depth < MAX_SPLITS && tasks.length < 100) {
+          for (const part of splitBox(t.box)) tasks.push({ name: t.name, box: part, depth: t.depth + 1 });
+          setProgress(i, tasks.length, t.name + ': участок великоват, делю на части');
+        } else failed++;
+        inRow++;
+        if ((found === 0 && inRow >= 3) || failed >= 8) throw new Error(NO_MAP);
+      }
+      await sleep(2000);
+    }
+    const stopped = signal.aborted;
+    setProgress(1, 1, stopped ? ('Остановлено. Новых заведений: ' + added + ', найденное сохранено.')
+      : ('Готово. Новых заведений: ' + added + (failed ? ', не получилось участков: ' + failed : '')));
+  } finally {
+    controller = null;
+    $('#scan-btn').disabled = false; $('#stop-btn').disabled = true;
+    save(); render();
+  }
+}
+
+// ---------- тексты ----------
+const BENEFITS = [
+  [['пекарня','кондитерская','шоколад','мороженое','мясная лавка','сыры','деликатесы','овощи'],
+   {ru:['ассортимент и цены','предзаказ и доставка','фото витрины'], ua:['асортимент і ціни','передзамовлення і доставка','фото вітрини']}],
+  [['кафе','ресторан','фастфуд','бар','паб','пивная','кофе','чай','фуд-корт'],
+   {ru:['меню с ценами и фото','бронь столика','доставка и самовывоз'], ua:['меню з цінами і фото','бронь столика','доставка і самовивіз']}],
+  [['парикмахерская','салон красоты','барбершоп','ногтевая студия','массаж','тату','косметика','спа','сауна','груминг','парфюмерия'],
+   {ru:['онлайн-запись','прайс на услуги','фото работ'], ua:['онлайн-запис','прайс на послуги','фото робіт']}],
+  [['автосервис','шиномонтаж','автомойка','автозапчасти','автосалон','автошкола','мотосалон','велосипеды'],
+   {ru:['список услуг с ценами','запись на удобное время','как к вам доехать'], ua:['перелік послуг з цінами','запис на зручний час','як до вас доїхати']}],
+  [['стоматология','клиника','врач','ветклиника','аптека','лаборатория','оптика','физиотерапия','медтехника'],
+   {ru:['услуги и цены','запись к нужному специалисту','отзывы пациентов'], ua:['послуги і ціни','запис до потрібного спеціаліста','відгуки пацієнтів']}],
+  [['гостиница','хостел','гостевой дом','апартаменты','мотель','домик'],
+   {ru:['номера и цены','бронь напрямую, без комиссии посредникам','фото и условия'], ua:['номери і ціни','бронь напряму, без комісії посередникам','фото і умови']}],
+  [['фитнес','спорткомплекс','танцы','боулинг','скалодром','конный клуб','спорттовары'],
+   {ru:['расписание занятий','цены на абонементы','запись на пробное'], ua:['розклад занять','ціни на абонементи','запис на пробне']}],
+  [['детский сад','языковая школа','музыкальная школа','курсы','колледж','детский центр','учебный центр'],
+   {ru:['программы и цены','расписание','запись на пробное занятие'], ua:['програми і ціни','розклад','запис на пробне заняття']}],
+  [['цветы','ателье','ювелирный','часы','фотостудия','прачечная','химчистка','ремонт','типография','копицентр','прокат','турагентство','ключи'],
+   {ru:['услуги и цены','примеры работ','заказ прямо со страницы'], ua:['послуги і ціни','приклади робіт','замовлення прямо зі сторінки']}]
+];
+const DEFAULT_BENEFIT = {ru:['услуги и цены','часы работы и контакты','как вас найти'], ua:['послуги і ціни','години роботи і контакти','як вас знайти']};
+function benefitsFor(kind, lang) {
+  const hit = BENEFITS.find(([keys]) => keys.some((k) => String(kind || '').includes(k)));
+  return hit ? hit[1][lang] : DEFAULT_BENEFIT[lang];
+}
+function seedOf(id) { let h = 0; for (const ch of String(id)) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return h; }
+function draftVariants(p) {
+  const lang = settings.lang === 'ru' ? 'ru' : 'ua';
+  const seed = seedOf(p.id), pick = (list, salt) => list[(seed + (salt || 0)) % list.length];
+  const name = String(p.name).replace(/["«»„“”]/g, '').trim() || p.name;
+  const city = p.city || '';
+  const kindRu = p.kind || 'заведение';
+  const kind = lang === 'ua' ? (KIND_UA[p.kind] || p.kind || 'заклад') : kindRu;
+  const site = (p.website || p.found_site || '').replace(/^https?:\/\//i, '').replace(/\/$/, '');
+  const hasSite = p.site_state === 'site' || p.site_state === 'found';
+  const me = (settings.name || '').trim(), offer = (settings.offer || '').trim();
+  const [b1, b2, b3] = benefitsFor(p.kind, lang);
+  const where = p.address ? (lang === 'ua' ? ' на ' + p.address : ' на ' + p.address) : '';
+  const inCity = city ? (lang === 'ua' ? ' у місті ' + city : ' в городе ' + city) : '';
+  let greet, intro, why, what, who, cta, second, third, titles;
+  if (lang === 'ua') {
+    greet = pick(['Вітаю!', 'Доброго дня!', 'Добрий день!']);
+    intro = p.site_state === 'none'
+      ? pick(['Шукав ' + kind + inCity + ' і натрапив на «' + name + '»' + where + ' — але сайту у вас не знайшов.',
+              'Знайшов «' + name + '» на карті' + inCity + where + ', а ось сайту у вас немає.',
+              'Побачив «' + name + '» серед закладів' + inCity + ' — сайту не знайшов.'], 1)
+      : p.site_state === 'social'
+        ? pick(['Знайшов «' + name + '» — у вас є сторінка в соцмережі, але власного сайту немає.',
+                'Бачу «' + name + '» у соцмережах, а сайту у вас немає.',
+                'У «' + name + '» є соцмережа, але немає сайту, на який можна послатися.'], 1)
+        : 'Подивився ваш сайт (' + site + '): він робочий, але кілька речей на ньому можна зробити зручніше.';
+    why = hasSite
+      ? pick(['Сайт — перше, що бачить людина перед тим, як до вас прийти, і саме по ньому вирішує, чи йти.',
+              'Тим, хто дивиться з телефона, важливо одразу побачити ціни, фото і як дістатися.',
+              'Невеликі правки на сайті зазвичай дають більше дзвінків, ніж реклама.'], 2)
+      : pick(['Коли людина шукає «' + kind + ' ' + city + '» у Google чи на картах, вона обирає з тих, у кого видно ціни і фото.',
+              'Більшість людей спершу гуглять заклад, і без сайту вас просто не бачать.',
+              'Соцмережі показують не всім, а сайт працює на вас цілодобово.'], 2);
+    what = hasSite ? 'Можу переробити його так, щоб одразу було видно головне: ' + b1 + ', ' + b2 + ', ' + b3 + '.'
+                   : 'Зроблю просту сторінку, де буде головне: ' + b1 + ', ' + b2 + ', ' + b3 + '.';
+    who = offer ? 'Я ' + offer + '.' : 'Я роблю сайти для місцевого бізнесу.';
+    cta = pick(['Якщо цікаво, покажу, як це може виглядати саме у вас — безкоштовно.',
+                'Хочете, зберу приклад для «' + name + '» і надішлю подивитися?',
+                "Можу надіслати приклад під ваш заклад, без оплати і зобов'язань."], 3);
+    second = hasSite ? 'Подивився ваш сайт — є кілька місць, де його варто підтягнути.' : 'Знайшов вас на карті' + inCity + '. Підкажіть, сайт у вас є?';
+    third = hasSite ? 'Якщо коротко: людям з телефона важко швидко знайти те, за чим вони прийшли: ' + b1 + '.'
+                    : 'Якщо немає: зараз тим, хто шукає вас у Google, ніде подивитися головне: ' + b1 + '.';
+    titles = ['Коротко: Telegram, Viber, Instagram', 'Лист на пошту', 'Що сказати по телефону'];
+  } else {
+    greet = pick(['Здравствуйте!', 'Добрый день!', 'Доброго дня!']);
+    intro = p.site_state === 'none'
+      ? pick(['Искал ' + kind + inCity + ' и наткнулся на «' + name + '»' + where + ' — но сайта у вас не нашёл.',
+              'Нашёл «' + name + '» на карте' + inCity + where + ', а вот сайта у вас нет.',
+              'Увидел «' + name + '» среди заведений' + inCity + ' — сайта не нашёл.'], 1)
+      : p.site_state === 'social'
+        ? pick(['Нашёл «' + name + '» — у вас есть страница в соцсети, но своего сайта нет.',
+                'Вижу «' + name + '» в соцсетях, а сайта у вас нет.',
+                'У «' + name + '» есть соцсеть, но нет сайта, на который можно сослаться.'], 1)
+        : 'Посмотрел ваш сайт (' + site + '): он рабочий, но пару вещей на нём можно сделать удобнее.';
+    why = hasSite
+      ? pick(['Сайт — первое, что видит человек перед тем, как к вам прийти, и по нему решает, идти ли вообще.',
+              'Тем, кто смотрит с телефона, важно сразу увидеть цены, фото и как добраться.',
+              'Небольшие правки на сайте обычно дают больше звонков, чем реклама.'], 2)
+      : pick(['Когда человек ищет «' + kindRu + ' ' + city + '» в Google или на картах, он выбирает из тех, у кого видно цены и фото.',
+              'Большинство людей сначала гуглят заведение, и без сайта вас просто не видят.',
+              'Соцсети показывают не всем, а сайт работает на вас круглосуточно.'], 2);
+    what = hasSite ? 'Могу переделать его так, чтобы сразу было видно главное: ' + b1 + ', ' + b2 + ', ' + b3 + '.'
+                   : 'Сделаю простую страницу, где будет главное: ' + b1 + ', ' + b2 + ', ' + b3 + '.';
+    who = offer ? 'Я ' + offer + '.' : 'Я делаю сайты для местного бизнеса.';
+    cta = pick(['Если интересно, покажу, как это может выглядеть именно у вас — бесплатно.',
+                'Хотите, соберу пример для «' + name + '» и пришлю посмотреть?',
+                'Могу прислать пример под ваше заведение, без оплаты и обязательств.'], 3);
+    second = hasSite ? 'Посмотрел ваш сайт — есть несколько мест, где его стоит подтянуть.' : 'Нашёл вас на карте' + inCity + '. Подскажите, сайт у вас есть?';
+    third = hasSite ? 'Если коротко: людям с телефона сложно быстро найти то, за чем они пришли: ' + b1 + '.'
+                    : 'Если нет: сейчас тем, кто ищет вас в Google, негде посмотреть главное: ' + b1 + '.';
+    titles = ['Коротко: Telegram, Viber, Instagram', 'Письмо на почту', 'Что сказать по телефону'];
+  }
+  const sign = me ? '\n\n— ' + me : '';
+  const short = [greet, intro, what, cta].join(' ');
+  const letter = greet + '\n\n' + intro + ' ' + why + '\n\n' + who + ' ' + what + '\n\n' + cta + sign;
+  const call = (lang === 'ua' ? 'Розмова з «' : 'Разговор с «') + name + '»\n\n1. ' +
+    (lang === 'ua' ? 'Доброго дня! Мене звати' : 'Добрый день! Меня зовут') + (me ? ' ' + me : '') + '. ' + who +
+    '\n2. ' + second + '\n3. ' + third + '\n4. ' +
+    (lang === 'ua' ? 'Пропозиція: безкоштовно зберу приклад сторінки саме для вас, подивитеся і вирішите.'
+                   : 'Предложение: бесплатно соберу пример страницы именно для вас, посмотрите и решите.') + '\n5. ' +
+    (lang === 'ua' ? 'Запитати: на який номер або пошту надіслати приклад?' : 'Спросить: на какой номер или почту прислать пример?');
+  return { name: p.name, contact: [p.phone, p.email, p.socials].filter(Boolean).join(' · '),
+    variants: [{ key: 'short', title: titles[0], text: short },
+               { key: 'mail', title: titles[1], text: (lang === 'ua' ? 'Тема: Сайт для «' : 'Тема: Сайт для «') + name + '»\n\n' + letter },
+               { key: 'call', title: titles[2], text: call }] };
+}
+
+// ---------- ссылки ----------
+const NET = { instagram: ['Instagram', 'https://instagram.com/'], facebook: ['Facebook', 'https://facebook.com/'],
+  telegram: ['Telegram', 'https://t.me/'], tiktok: ['TikTok', 'https://tiktok.com/@'], vk: ['VK', 'https://vk.com/'],
+  youtube: ['YouTube', 'https://youtube.com/'] };
+function safeLink(url) {
+  try { const u = new URL(normalizeUrl(url)); return (u.protocol === 'http:' || u.protocol === 'https:') ? u.href : null; } catch (e) { return null; }
+}
+const digitsOf = (v) => String(v || '').split(/[;,]/)[0].replace(/\D/g, '');
+function linksFor(p) {
+  const out = [], seen = new Set();
+  const add = (title, url) => { if (url && !seen.has(title)) { seen.add(title); out.push({ title, url }); } };
+  for (const part of String(p.socials || '').split(';')) {
+    const text = part.trim(); if (!text) continue;
+    const i = text.indexOf(':'); if (i < 0) continue;
+    const key = text.slice(0, i).trim().toLowerCase(), value = text.slice(i + 1).trim();
+    if (key === 'whatsapp') { const d = digitsOf(value); if (d.length >= 9) add('WhatsApp', 'https://wa.me/' + d); continue; }
+    if (key === 'viber') { const d = digitsOf(value); if (d.length >= 9) add('Viber', 'viber://chat?number=%2B' + d); continue; }
+    const net = NET[key];
+    const direct = /^https?:\/\//i.test(value) ? safeLink(value) : '';
+    if (net) add(net[0], direct || (net[1] + value.replace(/^@/, '').replace(/^.*\//, '')));
+    else if (direct) add(key, direct);
+  }
+  if (p.instagram) add('Instagram', 'https://instagram.com/' + p.instagram);
+  const site = p.website || p.found_site || '';
+  if (site && isSocial(site)) { const h = hostOf(site); for (const k in NET) if (h.includes(k)) add(NET[k][0], safeLink(site)); }
+  const d = digitsOf(p.phone);
+  if (d.length >= 9) { add('Telegram', 'https://t.me/+' + d); add('Viber', 'viber://chat?number=%2B' + d); add('WhatsApp', 'https://wa.me/' + d); add('Позвонить', 'tel:+' + d); }
+  if (p.email) add('Почта', 'mailto:' + p.email);
+  return out;
+}
+
+// ---------- таблица ----------
+function visible() {
+  const site = $('#f-site').value, st = $('#f-status').value, city = $('#f-city').value;
+  const text = $('#f-text').value.trim().toLowerCase(), hideChains = $('#f-chain').checked;
+  const contact = $('#f-contact').value, withHidden = $('#f-hidden').checked;
+  const list = places.filter((p) => {
+    if (p.hidden && !withHidden) return false;
+    if (hideChains && p.chain) return false;
+    if (contact === 'phone' && !p.phone) return false;
+    if (contact === 'any' && !(p.phone || p.email || p.socials || p.instagram)) return false;
+    if (contact === 'insta' && !(p.instagram || /instagram/i.test(p.socials || ''))) return false;
+    if (st && p.status !== st) return false;
+    if (city && p.city !== city) return false;
+    if (site === 'lead' && !(p.site_state === 'none' || p.site_state === 'social')) return false;
+    if (['none', 'social', 'found', 'site'].includes(site) && p.site_state !== site) return false;
+    if (text && !((p.name + ' ' + p.address + ' ' + p.city).toLowerCase().includes(text))) return false;
+    return true;
+  });
+  const sort = $('#f-sort').value;
+  const by = {
+    score: (a, b) => b.score - a.score || a.name.localeCompare(b.name, 'uk'),
+    name: (a, b) => a.name.localeCompare(b.name, 'uk'),
+    city: (a, b) => (a.city || '').localeCompare(b.city || '', 'uk') || b.score - a.score,
+    new: (a, b) => String(b.found_at || '').localeCompare(String(a.found_at || '')) || b.score - a.score
+  };
+  return list.sort(by[sort] || by.score);
+}
+function siteCell(p) {
+  const td = el('td');
+  if (p.site_state === 'none') td.append(el('span', { class: 'tag none', text: 'сайта нет в карте' }));
+  else if (p.site_state === 'social') td.append(el('span', { class: 'tag none', text: 'только соцсеть' }));
+  else if (p.site_state === 'found') td.append(el('span', { class: 'tag', text: 'сайт нашёлся: ' + (p.found_how || '') }));
+  else td.append(el('span', { class: 'tag ok', text: 'сайт есть в карте' }));
+  const site = p.website || p.found_site || '', href = site && safeLink(site);
+  if (href) td.append(el('div', null, el('a', { href, target: '_blank', rel: 'noopener noreferrer', text: site.replace(/^https?:\/\//i, '').slice(0, 44) })));
+  if (p.instagram && p.site_state === 'none') td.append(el('div', null, el('a', { href: 'https://instagram.com/' + p.instagram, target: '_blank', rel: 'noopener noreferrer', text: 'Instagram: @' + p.instagram })));
+  if (p.hidden) td.append(el('div', { class: 'muted', text: p.hidden_why || 'скрыто' }));
+  return td;
+}
+function render() {
+  const list = visible(), body = $('#rows');
+  body.replaceChildren();
+  for (const p of list.slice(0, shown)) {
+    const sel = el('select', { 'aria-label': 'Статус: ' + p.name, onchange: (e) => { p.status = e.target.value; save(); toast('Сохранено'); } });
+    for (const [v, t] of STATUSES) { const o = el('option', { value: v, text: t }); if (v === p.status) o.selected = true; sel.append(o); }
+    const note = el('input', { value: p.note || '', 'aria-label': 'Заметка: ' + p.name, placeholder: 'заметка',
+      onchange: (e) => { p.note = e.target.value; save(); toast('Сохранено'); } });
+    const contacts = el('td');
+    for (const c of [p.phone, p.email, p.socials]) if (c) contacts.append(el('div', { text: c }));
+    if (!contacts.childNodes.length) contacts.append(el('span', { class: 'muted', text: 'контактов на карте нет' }));
+    const box = el('div', { style: 'display:flex;flex-wrap:wrap;gap:6px;margin-top:6px' });
+    for (const l of linksFor(p)) box.append(el('a', { class: 'mini', href: l.url, target: '_blank', rel: 'noopener noreferrer', text: l.title }));
+    if (box.childNodes.length) contacts.append(box);
+    const q = encodeURIComponent(p.name + ' ' + (p.city || '') + ' ' + (p.address || ''));
+    body.append(el('tr', { class: (p.hidden ? 'dim ' : '') + 'pick', title: 'Нажмите на строку, чтобы собрать текст',
+        onclick: (e) => { if (!e.target.closest('a, button, select, input, textarea')) openDraft(p); } },
+      el('td', null, el('span', { class: 'score' + (p.score >= 70 ? ' hi' : ''), text: String(p.score) })),
+      el('td', null,
+        el('div', { text: p.name, style: 'font-weight:700;text-decoration:underline;text-underline-offset:3px' }),
+        el('div', { class: 'muted', text: [p.kind, p.address, p.city].filter(Boolean).join(' · ') }),
+        p.chain ? el('span', { class: 'tag', text: 'сеть' }) : null),
+      contacts, siteCell(p), el('td', null, sel), el('td', null, note),
+      el('td', null, el('div', { style: 'display:flex;flex-direction:column;gap:6px;min-width:146px' },
+        el('a', { class: 'mini', href: 'https://www.google.com/search?q=' + q, target: '_blank', rel: 'noopener noreferrer', text: 'Найти в Google' }),
+        el('a', { class: 'mini', href: 'https://www.instagram.com/explore/search/keyword/?q=' + q, target: '_blank', rel: 'noopener noreferrer', text: 'Искать в Instagram' }),
+        el('a', { class: 'mini', href: 'https://www.openstreetmap.org/' + encodeURI(p.id), target: '_blank', rel: 'noopener noreferrer', text: 'На карте' }),
+        el('button', { type: 'button', text: 'У них есть сайт', onclick: () => askSite(p) }),
+        el('button', { type: 'button', text: p.hidden ? 'Вернуть' : 'Скрыть',
+          onclick: () => { p.hidden = p.hidden ? 0 : 1; p.hidden_why = p.hidden ? 'скрыто вручную' : ''; save(); render(); toast(p.hidden ? 'Скрыто' : 'Возвращено'); } })))));
+  }
+  $('#count').textContent = 'Показано ' + Math.min(list.length, shown) + ' из ' + list.length;
+  $('#more-btn').hidden = list.length <= shown;
+  const counts = { none: 0, social: 0, found: 0, site: 0, hidden: 0 };
+  for (const p of places) { if (p.hidden) counts.hidden++; else counts[p.site_state] = (counts[p.site_state] || 0) + 1; }
+  $('#stats').textContent = 'В базе: ' + places.length + ' · без сайта: ' + counts.none + ' · только соцсеть: ' + counts.social +
+    ' · сайт нашёлся: ' + counts.found + ' · сайт в карте: ' + counts.site + (counts.hidden ? ' · скрыто: ' + counts.hidden : '');
+  const sel = $('#f-city'), cur = sel.value, cities = [...new Set(places.map((p) => p.city).filter(Boolean))].sort();
+  sel.replaceChildren(el('option', { value: '', text: 'Все города' }));
+  for (const c of cities) sel.append(el('option', { value: c, text: c }));
+  sel.value = cities.includes(cur) ? cur : '';
+}
+
+// ---------- окна ----------
+let draftPick = 'short';
+function openDraft(p) {
+  const j = draftVariants(p), tabs = $('#draft-tabs');
+  tabs.replaceChildren();
+  const show = (v) => {
+    draftPick = v.key; $('#draft-text').value = v.text; $('#copy-msg').textContent = '';
+    for (const b of tabs.children) { const on = b.dataset.key === v.key; b.classList.toggle('main', on); b.setAttribute('aria-pressed', String(on)); }
+  };
+  for (const v of j.variants) tabs.append(el('button', { type: 'button', 'data-key': v.key, text: v.title, onclick: () => show(v) }));
+  show(j.variants.find((v) => v.key === draftPick) || j.variants[0]);
+  $('#draft-title').textContent = 'Текст для «' + j.name + '»';
+  $('#draft-contact').textContent = j.contact ? ('Куда писать: ' + j.contact) : 'Контактов в карте нет: ищите через «Найти в Google»';
+  const box = $('#draft-links');
+  box.replaceChildren();
+  for (const l of linksFor(p)) box.append(el('a', { class: 'mini', style: 'padding:9px 14px', href: l.url, target: '_blank', rel: 'noopener noreferrer', text: l.title }));
+  $('#draft-dlg').showModal();
+}
+let sitePlace = null;
+function askSite(p) {
+  sitePlace = p; $('#site-msg').hidden = true;
+  $('#site-input').value = p.website || p.found_site || '';
+  $('#site-title').textContent = 'Сайт для «' + p.name + '»';
+  $('#site-dlg').showModal(); $('#site-input').focus();
+}
+
+// ---------- выгрузка ----------
+function csvCell(v) {
+  const t = v == null ? '' : String(v);
+  const guard = ['=', '@', '\t'].includes(t[0]) || (['+', '-'].includes(t[0]) && !/^[+\-][\d\s()\-]+$/.test(t));
+  return '"' + (guard ? "'" + t : t).replace(/"/g, '""') + '"';
+}
+function downloadCsv() {
+  const list = visible();
+  if (!list.length) throw new Error('Показывать нечего: измените фильтры.');
+  const head = ['Приоритет','Название','Категория','Адрес','Город','Телефон','Email','Соцсети','Instagram','Сайт','Откуда сайт','Состояние','Статус','Заметка','Часы работы','На карте'];
+  const state = { none: 'нет сайта', social: 'только соцсеть', found: 'сайт нашёлся', site: 'есть сайт' };
+  const statuses = Object.fromEntries(STATUSES);
+  const rows = list.map((p) => [p.score, p.name, p.kind, p.address, p.city, p.phone, p.email, p.socials,
+    p.instagram ? '@' + p.instagram : '', p.website || p.found_site, p.found_how || (p.website ? 'из карты' : ''),
+    state[p.site_state] || '', statuses[p.status] || p.status, p.note, p.hours, 'https://www.openstreetmap.org/' + p.id].map(csvCell).join(';'));
+  const blob = new Blob(['﻿' + [head.map(csvCell).join(';'), ...rows].join('\r\n')], { type: 'text/csv;charset=utf-8' });
+  const a = el('a', { href: URL.createObjectURL(blob), download: 'zorko.csv' });
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  toast('Скачано строк: ' + list.length);
+}
+
+// ---------- запуск ----------
+load();
+for (const [key, title] of CATEGORIES) {
+  const input = el('input', { type: 'checkbox', 'data-cat': key, onchange: () => { settings.cats = chosenCats(); saveSettings(); } });
+  if (settings.cats.includes(key)) input.checked = true;
+  $('#cats').append(el('label', { class: 'check' }, input, el('span', { text: title })));
+}
+$('#cats').append(el('label', { class: 'check' }, el('input', { type: 'checkbox',
+  onchange: (e) => { for (const c of document.querySelectorAll('[data-cat]')) c.checked = e.target.checked; settings.cats = chosenCats(); saveSettings(); } }),
+  el('span', { text: 'Выбрать все' })));
+function chosenCats() { return [...document.querySelectorAll('[data-cat]')].filter((c) => c.checked).map((c) => c.dataset.cat); }
+for (const [v, t] of STATUSES) $('#f-status').append(el('option', { value: v, text: t }));
+$('#city').value = settings.city || '';
+$('#my-name').value = settings.name || '';
+$('#offer').value = settings.offer || '';
+$('#lang').value = settings.lang === 'ru' ? 'ru' : 'ua';
+render();
+
+$('#scan-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const cities = $('#city').value.split(',').map((c) => c.trim()).filter(Boolean);
+  settings.city = $('#city').value; settings.cats = chosenCats(); saveSettings();
+  if (!cities.length) return showError(new Error('Введите город.'));
+  if (cities.length > 5) return showError(new Error('За один раз не больше 5 городов.'));
+  $('#f-site').value = 'lead';
+  scan(cities, chosenCats()).catch(showError);
+});
+$('#stop-btn').addEventListener('click', () => { if (controller) { controller.abort(); toast('Останавливаю'); } });
+$('#more-btn').addEventListener('click', () => { shown += PAGE_SIZE; render(); });
+for (const id of ['#f-site', '#f-status', '#f-chain', '#f-city', '#f-sort', '#f-contact', '#f-hidden'])
+  $(id).addEventListener('change', () => { shown = PAGE_SIZE; render(); });
+$('#f-text').addEventListener('input', () => { shown = PAGE_SIZE; render(); });
+$('#my-name').addEventListener('change', (e) => { settings.name = e.target.value; saveSettings(); toast('Сохранено'); });
+$('#offer').addEventListener('change', (e) => { settings.offer = e.target.value; saveSettings(); toast('Сохранено'); });
+$('#lang').addEventListener('change', (e) => { settings.lang = e.target.value; saveSettings(); toast('Язык текстов сохранён'); });
+$('#csv-btn').addEventListener('click', () => { try { downloadCsv(); } catch (e) { showError(e); } });
+$('#clear-btn').addEventListener('click', () => $('#clear-dlg').showModal());
+$('#clear-no').addEventListener('click', () => $('#clear-dlg').close());
+$('#clear-yes').addEventListener('click', () => { places = []; save(); render(); $('#clear-dlg').close(); toast('База очищена'); });
+$('#close-btn').addEventListener('click', () => $('#draft-dlg').close());
+$('#copy-btn').addEventListener('click', async () => {
+  const t = $('#draft-text');
+  try { await navigator.clipboard.writeText(t.value); $('#copy-msg').textContent = 'Скопировано'; toast('Скопировано'); }
+  catch (e) { t.select(); $('#copy-msg').textContent = 'Нажмите Ctrl+C, чтобы скопировать'; }
+});
+$('#site-cancel').addEventListener('click', () => $('#site-dlg').close());
+$('#site-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); $('#site-save').click(); } });
+$('#site-save').addEventListener('click', () => {
+  const value = $('#site-input').value.trim(), msg = $('#site-msg');
+  if (!value) { msg.hidden = false; msg.textContent = 'Впишите адрес сайта или нажмите «Отмена».'; return; }
+  const url = normalizeUrl(value);
+  if (!/^https?:\/\/[^\s/]+\.[^\s/]+/.test(url)) { msg.hidden = false; msg.textContent = 'Не похоже на адрес сайта. Пример: example.com'; return; }
+  sitePlace.found_site = url;
+  sitePlace.found_how = 'нашли вручную';
+  sitePlace.site_state = isSocial(url) ? 'social' : 'found';
+  sitePlace.score = score(sitePlace);
+  save(); render(); $('#site-dlg').close();
+  toast('Записано: у «' + sitePlace.name + '» есть сайт');
+});
+</script>
+</body>
+</html>
