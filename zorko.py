@@ -274,12 +274,13 @@ def make_cells(s, n, w, e, km):
     return cells
 
 
-def overpass(filters, s, w, n, e, alive=lambda: True, attempts=2, timeout=120, server_timeout=180,
+def overpass(filters, s, w, n, e, alive=lambda: True, attempts=None, timeout=120, server_timeout=180,
              hedge=None):
     """Один запрос к серверу карт. Если зеркало молчит дольше hedge секунд, параллельно
     спрашиваем соседнее и берём тот ответ, который придёт первым: так одно зависшее
     зеркало больше не держит весь поиск."""
     hedge = HEDGE_SECONDS if hedge is None else hedge
+    attempts = len(OVERPASS) if attempts is None else attempts
     parts = "".join("nwr%s(%.6f,%.6f,%.6f,%.6f);" % (f, s, w, n, e) for f in filters)
     query = "[out:json][timeout:%d];(" % server_timeout + parts + ");out center tags;"
     body = urllib.parse.urlencode({"data": query}).encode("utf-8")
@@ -322,6 +323,29 @@ def overpass(filters, s, w, n, e, alive=lambda: True, attempts=2, timeout=120, s
             if state["started"] < tries:
                 start_next()
     raise RuntimeError("сервер карт не ответил: %s" % last)
+
+
+def ask_map(filters, box, alive, report, timeout, hedge, max_wait):
+    """Серверы карт бесплатные и часто перегружены. Ждём очередь с нарастающей паузой
+    и говорим человеку, что происходит, вместо того чтобы молча стоять."""
+    started = time.time()
+    attempt = 0
+    last = None
+    while alive():
+        attempt += 1
+        try:
+            return overpass(filters, box[0], box[1], box[2], box[3], alive=alive,
+                            timeout=timeout, hedge=hedge)
+        except RuntimeError as err:
+            last = err
+            if "stopped" in str(err) or not alive() or time.time() + 4 > started + max_wait:
+                break
+            wait = min(30, 4 * attempt)
+            report(attempt, int(time.time() - started), wait)
+            end = time.time() + wait
+            while time.time() < end and alive():
+                time.sleep(0.2)
+    raise last or RuntimeError("stopped")
 
 
 def split_box(box):
@@ -892,6 +916,7 @@ def run_scan(token, cities, cat_keys, cell_km=0):
     setj(token, total=len(tasks))
 
     failed = in_row = found = added = 0
+    begun = time.time()
     i = 0
     while i < len(tasks):
         if not alive(token):
@@ -899,8 +924,13 @@ def run_scan(token, cities, cat_keys, cell_km=0):
         name, cc, box, depth = tasks[i]
         setj(token, msg="%s: участок %d из %d" % (name, i + 1, len(tasks)))
         try:
-            elements = overpass(filters, box[0], box[1], box[2], box[3], alive=lambda: alive(token),
-                                timeout=120 if depth == 0 else 80, hedge=None if depth == 0 else 8)
+            elements = ask_map(
+                filters, box, lambda: alive(token),
+                lambda attempt, waited, nxt: setj(token, msg=(
+                    "Серверы карт заняты, жду очередь: попытка %d, прошло %d с, следующая через %d с. "
+                    "Можно остановить." % (attempt, waited, nxt))),
+                timeout=120 if depth == 0 else 90, hedge=None if depth == 0 else 8,
+                max_wait=25 if (depth == 0 or found == 0) else 120)
             if not elements and depth == 0 and len(OVERPASS) > 1:
                 # пусто на целый город подозрительно: спрашиваем другое зеркало
                 OVERPASS_NEXT[0] = (OVERPASS_NEXT[0] + 1) % len(OVERPASS)
@@ -925,7 +955,7 @@ def run_scan(token, cities, cat_keys, cell_km=0):
             else:
                 failed += 1
             in_row += 1
-            if (found == 0 and in_row >= 3) or failed >= 8:
+            if (found == 0 and (in_row >= 3 or time.time() - begun > 180)) or failed >= 8:
                 raise RuntimeError(NO_MAP)
         i += 1
         setj(token, done=i)

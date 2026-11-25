@@ -84,6 +84,7 @@ footer{color:var(--mute);font-size:13px;display:flex;flex-wrap:wrap;gap:6px 18px
     <label class="grow">Город, можно несколько через запятую<input id="city" placeholder="Львів, Дрогобич" required></label>
     <button class="main" id="scan-btn" type="submit">Найти заведения</button>
     <button id="stop-btn" type="button" disabled>Остановить</button>
+    <button id="ping-btn" type="button" title="Покажет, отвечают ли серверы карт прямо сейчас">Проверить серверы</button>
   </form>
   <div class="cats" id="cats" role="group" aria-label="Категории заведений"></div>
   <div style="margin-top:12px;display:flex;flex-direction:column;gap:6px">
@@ -324,7 +325,7 @@ function timeoutSignal(ms) {
 // и берём ответ, который придёт первым. Одно зависшее зеркало больше не держит весь поиск.
 function overpass(filters, box, signal, timeout = 120000, hedge = 15000) {
   const q = '[out:json][timeout:180];(' + filters.map((f) => 'nwr' + f + '(' + box.map((v) => v.toFixed(6)).join(',') + ');').join('') + ');out center tags;';
-  const tries = Math.min(2, MIRRORS.length);
+  const tries = MIRRORS.length;
   return new Promise((resolve, reject) => {
     let started = 0, failed = 0, done = false, timer = null;
     const controllers = [];
@@ -356,6 +357,26 @@ function overpass(filters, box, signal, timeout = 120000, hedge = 15000) {
     start();
     signal.addEventListener('abort', () => finish(false, new Error('остановлено')), { once: true });
   });
+}
+// Серверы карт бесплатные и часто перегружены: они отвечают «занят» или молчат.
+// Вместо того чтобы сдаться, ждём очередь с нарастающей паузой и показываем это.
+async function askMap(filters, box, signal, opts) {
+  const started = Date.now(), deadline = started + opts.maxWait;
+  let attempt = 0, last = null;
+  while (!signal.aborted) {
+    attempt++;
+    try {
+      return await overpass(filters, box, signal, opts.timeout, opts.hedge);
+    } catch (err) {
+      last = err;
+      if (signal.aborted || Date.now() + 4000 > deadline) break;
+      const wait = Math.min(30000, 4000 * attempt);
+      const waited = Math.round((Date.now() - started) / 1000);
+      opts.onWait(attempt, waited, Math.round(wait / 1000));
+      for (let left = wait; left > 0 && !signal.aborted; left -= 500) await sleep(500);
+    }
+  }
+  throw last || new Error('остановлено');
 }
 function splitBox(b) {
   const [s, w, n, e] = b, ms = (s + n) / 2, mw = (w + e) / 2;
@@ -473,6 +494,7 @@ async function scan(cities, cats) {
   const signal = controller.signal;
   $('#scan-btn').disabled = true; $('#stop-btn').disabled = false;
   let added = 0, found = 0, failed = 0, inRow = 0;
+  const begun = Date.now();
   try {
     const tasks = [];
     for (const city of cities) {
@@ -486,7 +508,12 @@ async function scan(cities, cats) {
       const t = tasks[i];
       setProgress(i, tasks.length, t.name + ': участок ' + (i + 1) + ' из ' + tasks.length + '. Найдено: ' + found + ', новых: ' + added);
       try {
-        const elements = await overpass(filters, t.box, signal, t.depth === 0 ? 120000 : 80000, t.depth === 0 ? 15000 : 8000);
+        const elements = await askMap(filters, t.box, signal, {
+          timeout: t.depth === 0 ? 120000 : 90000, hedge: t.depth === 0 ? 15000 : 8000,
+          maxWait: (t.depth === 0 || found === 0) ? 25000 : 120000,
+          onWait: (attempt, waited, next) => setProgress(i, tasks.length,
+            'Серверы карт заняты, жду очередь: попытка ' + attempt + ', прошло ' + waited + ' с, следующая через ' + next + ' с. Можно остановить.')
+        });
         found += elements.length;
         added += mergeElements(elements, t.name);
         markChainsAndTwins();
@@ -500,7 +527,7 @@ async function scan(cities, cats) {
           setProgress(i, tasks.length, t.name + ': участок великоват, делю на части');
         } else failed++;
         inRow++;
-        if ((found === 0 && inRow >= 3) || failed >= 8) throw new Error(NO_MAP);
+        if ((found === 0 && (inRow >= 3 || Date.now() - begun > 180000)) || failed >= 8) throw new Error(NO_MAP);
       }
       await sleep(1000);
     }
@@ -817,6 +844,27 @@ $('#scan-form').addEventListener('submit', (e) => {
   scan(cities, chosenCats()).catch(showError);
 });
 $('#stop-btn').addEventListener('click', () => { if (controller) { controller.abort(); toast('Останавливаю'); } });
+$('#ping-btn').addEventListener('click', async () => {
+  $('#ping-btn').disabled = true;
+  const lines = [];
+  try {
+    const t0 = Date.now();
+    try { await fetch(NOMINATIM + '?q=Lviv&format=jsonv2&limit=1', { signal: timeoutSignal(10000) }); lines.push('поиск городов: отвечает'); }
+    catch (e) { lines.push('поиск городов: НЕ отвечает'); }
+    for (const url of MIRRORS) {
+      const host = new URL(url).hostname;
+      setProgress(0, 1, 'Проверяю ' + host);
+      const start = Date.now();
+      try {
+        const r = await fetch(url, { method: 'POST', body: new URLSearchParams({ data: '[out:json][timeout:15];node["amenity"="cafe"](49.35,23.50,49.36,23.52);out ids 3;' }), signal: timeoutSignal(16000) });
+        await r.text();
+        lines.push(host + (r.ok ? ': отвечает (' + Math.round((Date.now() - start) / 1000) + ' с)' : ': занят, ошибка ' + r.status));
+      } catch (e) { lines.push(host + ': не отвечает'); }
+    }
+  } finally { $('#ping-btn').disabled = false; }
+  const alive = lines.some((l) => l.includes(': отвечает'));
+  setProgress(1, 1, lines.join(' · ') + (alive ? '' : '. ' + NO_MAP), !alive);
+});
 $('#more-btn').addEventListener('click', () => { shown += PAGE_SIZE; render(); });
 for (const id of ['#f-site', '#f-status', '#f-chain', '#f-city', '#f-sort', '#f-contact', '#f-hidden'])
   $(id).addEventListener('change', () => { shown = PAGE_SIZE; render(); });
